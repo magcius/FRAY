@@ -163,7 +163,6 @@ static f32 parseFloat(u8** curr_parse, u8 frac)
     return result / (1 << (frac & 0x1F));
 }
 
-#if 1
 //8036ADDC
 static u8 parseOpCode(u8** curr_parse)
 {
@@ -310,7 +309,7 @@ static u32 FObjAnimKey(HSD_FObj* fobj)
     return HSD_FObjSetState(fobj, temp);
 }
 
-static f32 FObjLoadData(HSD_FObj* fobj)
+static u32 FObjLoadData(HSD_FObj* fobj)
 {
     u32 res;
 
@@ -391,30 +390,6 @@ static u32 FObjLoadWait(HSD_FObj* fobj)
     return res;
 }
 
-#else
-//8036ADDC
-static u8 parseOpCode(u8** curr_parse)
-{
-    u8* temp = *curr_parse;
-    *curr_parse = temp + 1;
-    u32 lshift = 3;
-
-    u8 result = ((*temp >> 4) & 7) + 1;
-    if ((*temp & 0x80) == 0) {
-        return result;
-    }
-
-    u8* parse;
-    do {
-        parse = *curr_parse;
-        *curr_parse = parse + 1;
-        result += (*parse & 0x7F) << lshift;
-        lshift += 7;
-    } while ((*parse & 0x80) != 0);
-    return result;
-}
-#endif
-
 //8036AE70
 void FObjUpdateAnim(HSD_FObj* fobj, void* obj, void (*obj_update)(void*, u32, FObjData))
 {
@@ -468,7 +443,6 @@ void FObjUpdateAnim(HSD_FObj* fobj, void* obj, void (*obj_update)(void*, u32, FO
 //8036B030
 void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj, void (*obj_update)(), f32 rate)
 {
-#if 0
     u32 state;
     f32 fterm;
 
@@ -487,7 +461,7 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj, void (*obj_update)(), f32 
                     if (state == 0) {
                         return;
                     }
-                    if (-1 < state) {
+                    if (state > 0) {
                         if (state < 3) {
                             state = FObjLoadData(fobj);
                         } else {
@@ -513,115 +487,13 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj, void (*obj_update)(), f32 
             if (fobj->time < (f32)fobj->fterm)
                 break;
             fterm = (f32)fobj->fterm;
-            fobj->time = fobj->time - (f32)fobj->fterm;
+            fobj->time -= (f32)fobj->fterm;
             state = 3;
             HSD_FObjSetState(fobj, 3);
         }
         FObjUpdateAnim(fobj, obj, obj_update);
         HSD_FObjSetState(fobj, 5);
     }
-#else
-    u32 fterm;
-    u32 uVar2;
-    u8 state;
-    f32 fVar6;
-
-    if (fobj == NULL) {
-        uVar2 = 0;
-    } else {
-        uVar2 = HSD_FObjGetState(fobj);
-    }
-
-    if (uVar2 == 0 || (fobj->time += rate, fobj->time < 0.0)) {
-        return;
-    }
-
-    fVar6 = 0.0F;
-    do {
-        while (true) {
-            while (true) {
-                while (true) {
-                    while (true) {
-                        while (true) {
-                            do {
-                                while (true) {
-                                    while (uVar2 == 4) {
-                                        fterm = fobj->fterm;
-                                        if (fobj->time < (f32)fterm) {
-                                            FObjUpdateAnim(fobj, obj, obj_update);
-
-                                            HSD_FObjSetState(fobj, 5);
-                                            return;
-                                        }
-                                        fVar6 = (f32)fterm;
-                                        fobj->time = fobj->time - (f32)fterm;
-                                        uVar2 = HSD_FObjSetState(fobj, 3);
-                                    }
-                                    if (uVar2 < 4)
-                                        break;
-                                    if (uVar2 == 6) {
-                                        fobj->time = (fobj->time + fVar6);
-                                        FObjLaunchKeyData(fobj);
-                                        FObjUpdateAnim(fobj, obj, obj_update);
-                                        return;
-                                    }
-                                    if (uVar2 < 6) {
-                                        uVar2 = HSD_FObjSetState(fobj, 4);
-                                    }
-                                }
-                                if (uVar2 == 0) {
-                                    return;
-                                }
-                            } while (uVar2 < 0);
-                            if (uVar2 < 3)
-                                break;
-                            if ((fobj->flags & 0x80) != 0) {
-                                FObjUpdateAnim(fobj, obj, obj_update);
-                            }
-                            uVar2 = FObjLoadWait(fobj);
-                        }
-                        if ((fobj->ad - fobj->ad_head) < fobj->length)
-                            break;
-                        uVar2 = HSD_FObjSetState(fobj, 6);
-                    }
-                    fobj->op_intrp = fobj->op;
-                    if (fobj->nb_pack == 0) {
-                        fobj->op = parseOpCode(&fobj->ad);
-                        fobj->nb_pack = (u16)parsePackInfo(&fobj->ad);
-                    }
-                    fobj->nb_pack = fobj->nb_pack - 1;
-                    state = fobj->op;
-                    if (state != 4)
-                        break;
-                    
-                    uVar2 = FObjAnimSPL(fobj);
-                }
-                if (state < 4)
-                    break;
-                if (state == 6) {
-                    uVar2 = FObjAnimKey(fobj);
-                } else {
-                    if (5 < state)
-                        goto LAB_8036b51c;
-                    uVar2 = FObjAnimSLP(fobj);
-                }
-            }
-            if (state == 2)
-                break;
-            if (state < 2) {
-                if (state == 0) {
-                LAB_8036b51c:
-                    uVar2 = 0;
-                } else {
-                    uVar2 = FObjAnimCON(fobj);
-                }
-            } else {
-                uVar2 = FObjAnimSPL0(fobj);
-            }
-        }
-        uVar2 = FObjAnimLinear(fobj);
-    } while (true);
-#endif
 }
 
 //8036B6CC
